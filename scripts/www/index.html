@@ -1,11 +1,821 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
-</html>
+<html lang="zh-CN"><head>
+  <meta charset="UTF-8">
+  <!-- 优化移动端适配核心配置 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>包子配比计算器</title>
+  <!-- Tailwind CSS v3 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- html2canvas for saving results as image -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#2E7D32',
+            secondary: '#43A047',
+            accent: '#66BB6A',
+            neutral: '#F5F5F5',
+            dark: '#212121'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          animation: {
+            'bounce-slow': 'bounce 2s infinite',
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .text-shadow {
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+      }
+      .card-shadow {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      }
+      .input-focus {
+        @apply focus:ring-2 focus:ring-primary focus:border-primary;
+      }
+      .icon-highlight {
+        animation: pulse 2s infinite;
+      }
+      .base-ingredient-highlight {
+        background-color: #E8F5E9;
+        font-weight: bold;
+        border-left: 4px solid #2E7D32;
+      }
+      
+      .editing-breathing-bg {
+        background-color: #F3F4F6; /* 加深的灰色背景 */
+        animation: breathing 3s ease-in-out infinite;
+      }
+      
+      @keyframes breathing {
+        0%, 100% {
+          background-color: #F3F4F6;
+        }
+        50% {
+          background-color: #E5E7EB;
+        }
+      }
+      .large-check-icon {
+        transform: scale(1.2); /* 稍微调小选中图标 */
+      }
+      
+      /* 移动端按钮样式 */
+      .mobile-btn {
+        @apply py-4 px-4 rounded-lg font-bold text-base flex items-center justify-center shadow-md transition-all duration-200;
+        min-height: 56px;
+        width: 100%;
+      }
+      
+      .mobile-btn-primary {
+        @apply bg-primary text-white hover:bg-primary/90 active:bg-primary/80;
+      }
+      
+      .mobile-btn-secondary {
+        @apply bg-gray-200 text-dark hover:bg-gray-300 active:bg-gray-400;
+      }
+    }
+    
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.4);
+      }
+      70% {
+        box-shadow: 0 0 0 10px rgba(46, 125, 50, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(46, 125, 50, 0);
+      }
+    }
+    
+    /* 自定义滚动条 */
+    ::-webkit-scrollbar {
+      width: 12px;
+      height: 12px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #2E7D32;
+      border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #1B5E20;
+    }
+    
+    /* 调整字体大小 - 整体稍小但保持可读性 */
+    body {
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+      font-weight: 700;
+    }
+    
+    /* 页面切换动画 */
+    .page-transition {
+      transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    }
+    
+    .page-enter {
+      transform: translateX(20px);
+      opacity: 0;
+    }
+    
+    .page-enter-active {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    
+    /* 移动端适配修复 */
+    @media (max-width: 640px) {
+      .container {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+      }
+      .grid-cols-2 {
+        grid-template-columns: 1fr !important;
+      }
+      button {
+        width: 100%;
+        margin-bottom: 8px;
+      }
+      .flex {
+        flex-wrap: wrap;
+      }
+      .space-x-4 > * + * {
+        margin-left: 0 !important;
+        margin-top: 8px !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-neutral min-h-screen font-sans text-dark">
+  <!-- 顶部导航栏 - 适配移动端 -->
+  <header class="bg-primary text-white shadow-md sticky top-0 z-10">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <h1 class="text-xl font-bold flex items-center">
+        <i class="fa fa-cutlery mr-2"></i>
+        <span>包子配比计算器</span>
+      </h1>
+      <nav>
+        <button id="nav-home" class="px-2 py-1 rounded-md bg-white bg-opacity-20 hover:bg-opacity-30 transition-all text-sm">
+          <i class="fa fa-home"></i> 首页
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 主内容区 - 优化移动端间距 -->
+  <main class="container mx-auto px-4 py-4">
+    <!-- 第一步：选择包子类型 -->
+    <section id="page-home" class="page-content">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold flex items-center">
+          <i class="fa fa-list-ul text-primary mr-2"></i>
+          选择包子类型
+        </h2>
+        <div class="bg-primary/10 text-primary px-2 py-1 rounded-full text-xs font-medium">
+          步骤 1/3
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="bun-types-container">
+        <!-- 包子类型卡片将通过JS动态生成 -->
+      </div>
+      
+      <!-- 下一步按钮 - 适配移动端 -->
+      <div class="text-center mt-6">
+        <button id="next-to-weight-btn" class="bg-primary hover:bg-primary/90 text-white text-lg font-bold py-4 px-8 rounded-full shadow-lg transform transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 w-full sm:w-auto">
+          <i class="fa fa-arrow-right mr-2 text-lg"></i> 下一步
+        </button>
+      </div>
+    </section>
+    
+    <!-- 第二步：输入基准重量 -->
+    <section id="page-weight" class="page-content hidden">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold flex items-center">
+          <i class="fa fa-sliders text-primary mr-2"></i>
+          输入基准重量
+        </h2>
+        <div class="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
+          步骤 2/3
+        </div>
+      </div>
+      
+      <div class="bg-white rounded-lg p-6 card-shadow mb-6">
+        <div class="mb-4">
+          <p class="text-sm text-gray-500 mb-1">已选择</p>
+          <p id="selected-bun-type" class="text-lg font-bold"></p>
+        </div>
+        
+        <div class="mb-6">
+          <p class="text-sm text-gray-500 mb-1">基准配料</p>
+          <p id="selected-base-ingredient" class="text-lg font-bold text-primary"></p>
+        </div>
+        
+        <div>
+          <label class="block text-gray-700 mb-2 font-medium">输入基准配料重量（克 g）</label>
+          <div>
+            <input type="number" id="base-weight" min="50" value="500" step="50" class="w-full px-4 py-3 text-xl border border-gray-300 rounded-md input-focus">
+          </div>
+          <div class="mt-4">
+            <input type="range" id="base-weight-slider" min="50" max="15000" step="50" value="500" class="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary">
+            <div class="flex justify-between text-base text-gray-500 mt-1">
+              <span>50g</span>
+              <span>7500g</span>
+              <span>15000g</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-2 gap-4">
+        <button id="back-to-bun-type-btn" class="mobile-btn mobile-btn-secondary">
+          <i class="fa fa-arrow-left mr-2"></i>
+          <span>返回</span>
+        </button>
+        <button id="calculate-btn" class="mobile-btn mobile-btn-primary">
+          <i class="fa fa-calculator mr-2"></i>
+          <span>计算配比</span>
+        </button>
+      </div>
+    </section>
+    
+    <!-- 第三步：计算结果 -->
+    <section id="page-result" class="page-content hidden">
+
+      
+      <!-- 结果卡片 - 荣耀30Pro适配 -->
+      <div class="bg-white rounded-lg p-4 card-shadow mb-4 border-2 border-primary">
+        <div class="mb-3">
+          <p id="result-bun-type" class="text-xl font-bold text-primary" style="color: rgb(5, 5, 5);">豇豆鲜肉包</p>
+        </div>
+        <div class="border-t-2 border-primary my-3"></div>
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[280px]">
+            <thead>
+              <tr class="bg-primary text-white">
+                <th class="py-3 px-4 text-center text-base font-bold whitespace-nowrap w-2/3">配料名称</th>
+                <th class="py-3 px-4 text-center text-base font-bold whitespace-nowrap w-1/3">用量(克)</th>
+              </tr>
+            </thead>
+            <tbody id="result-table-body">
+              <!-- 结果将通过JS动态生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- 操作按钮 - 荣耀30Pro适配 -->
+      <div class="flex flex-col sm:flex-row gap-3">
+        <button id="recalculate-btn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-dark font-bold py-3 px-4 rounded-lg shadow transform transition hover:scale-105 text-base">
+          <i class="fa fa-refresh mr-2 text-base"></i> 重新计算
+        </button>
+        <button id="save-result-btn" class="flex-1 bg-secondary hover:bg-secondary/90 text-white font-bold py-3 px-4 rounded-lg shadow transform transition hover:scale-105 text-base">
+          <i class="fa fa-share-alt mr-2 text-base"></i> 保存分享
+        </button>
+      </div>
+    </section>
+    
+
+  </main>
+
+  <!-- 底部信息 -->
+  <footer class="bg-dark text-white py-4">
+    <div class="container mx-auto px-4 text-center text-sm">
+      <p>包子配比计算器 © 2025</p>
+      <p class="mt-1 text-gray-400">专为包子制作爱好者设计</p>
+    </div>
+  </footer>
+
+  <!-- 保存结果弹窗 -->
+  <div id="save-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg p-6 w-11/12 max-w-md">
+      <h3 class="text-lg font-bold mb-4">保存计算结果</h3>
+      <div class="mb-4">
+        <label class="block text-gray-700 mb-2">结果名称</label>
+        <input type="text" id="save-name" class="w-full px-4 py-2 border border-gray-300 rounded-md input-focus" placeholder="例如：韭菜鸡蛋包子 500g">
+      </div>
+      <div class="flex justify-end space-x-3">
+        <button id="cancel-save" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100">取消</button>
+        <button id="confirm-save" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通知提示 -->
+  <div id="toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-dark text-white px-6 py-3 rounded-lg shadow-lg z-50 hidden">
+    <span id="toast-message"></span>
+  </div>
+
+  <script>
+    // 包子类型数据
+    const bunTypes = [
+      {
+        id: "cowpea_pork",
+        name: "豇豆鲜肉包",
+        category: "meat",
+        baseWeight: 2000,
+        ingredients: [
+          { name: "豇豆", amount: 2000 },
+          { name: "肥肉", amount: 2350 },
+          { name: "瘦肉", amount: 650 },
+          { name: "料包", amount: 450 },
+          { name: "生姜粒", amount: 113 },
+          { name: "大葱", amount: 113 },
+          { name: "色拉油", amount: 550 },
+          { name: "老抽", amount: 113 },
+          { name: "香油", amount: 10 }
+        ]
+      },
+      {
+        id: "preserved_vegetable_pork",
+        name: "芽菜鲜肉包",
+        category: "meat",
+        baseWeight: 2000,
+        ingredients: [
+          { name: "芽菜", amount: 2000 },
+          { name: "肥肉", amount: 2350 },
+          { name: "瘦肉", amount: 650 },
+          { name: "料包", amount: 450 },
+          { name: "生姜粒", amount: 60 },
+          { name: "大葱", amount: 60 },
+          { name: "色拉油", amount: 950 },
+          { name: "老抽", amount: 106 },
+          { name: "香油", amount: 10 }
+        ]
+      },
+      {
+        id: "scallion_pork",
+        name: "葱香鲜肉包",
+        category: "meat",
+        baseWeight: 2000,
+        ingredients: [
+          { name: "瘦肉", amount: 2000 },
+          { name: "肥肉", amount: 3000 },
+          { name: "料包", amount: 450 },
+          { name: "生姜粒", amount: 150 },
+          { name: "大葱", amount: 150 },
+          { name: "色拉油", amount: 250 },
+          { name: "老抽", amount: 140 },
+          { name: "香油", amount: 10 }
+        ]
+      },
+      {
+        id: "cabbage_pork",
+        name: "白菜鲜肉包",
+        category: "meat",
+        baseWeight: 1000,
+        ingredients: [
+          { name: "白菜", amount: 1000 },
+          { name: "小葱", amount: 100 },
+          { name: "料包", amount: 90 },
+          { name: "猪油", amount: 80 },
+          { name: "鸡油", amount: 150 }
+        ]
+      },
+      {
+        id: "lotus_root_pork",
+        name: "藕丁鲜肉包",
+        category: "meat",
+        baseWeight: 2000,
+        ingredients: [
+          { name: "藕丁", amount: 2000 },
+          { name: "肥肉", amount: 2300 },
+          { name: "瘦肉", amount: 700 },
+          { name: "料包", amount: 450 },
+          { name: "生姜粒", amount: 112 },
+          { name: "大葱", amount: 112 },
+          { name: "大豆油", amount: 300 },
+          { name: "老抽", amount: 110 },
+          { name: "香油", amount: 10 }
+        ]
+      },
+      {
+        id: "mushroom_pork",
+        name: "香菇鲜肉包",
+        category: "meat",
+        baseWeight: 1800,
+        ingredients: [
+          { name: "香菇", amount: 1800 },
+          { name: "肥肉", amount: 2300 },
+          { name: "瘦肉", amount: 900 },
+          { name: "料包", amount: 450 },
+          { name: "生姜粒", amount: 114 },
+          { name: "大葱", amount: 114 },
+          { name: "色拉油", amount: 500 },
+          { name: "老抽", amount: 91 },
+          { name: "香油", amount: 10 }
+        ]
+      },
+      {
+        id: "sauce_pork",
+        name: "酱肉包",
+        category: "meat",
+        baseWeight: 3000,
+        ingredients: [
+          { name: "肥肉", amount: 3000 },
+          { name: "瘦肉", amount: 2000 },
+          { name: "料包", amount: 450 },
+          { name: "生姜粒", amount: 150 },
+          { name: "大葱", amount: 150 },
+          { name: "色拉油", amount: 250 },
+          { name: "老抽", amount: 140 },
+          { name: "白糖", amount: 70 },
+          { name: "香油", amount: 15 },
+          { name: "甜面酱", amount: 180 }
+        ]
+      },
+      {
+        id: "celery_beef",
+        name: "芹菜牛肉包",
+        category: "meat",
+        baseWeight: 3500,
+        ingredients: [
+          { name: "牛肉", amount: 3500 },
+          { name: "香芹", amount: 1500 },
+          { name: "大葱", amount: 200 },
+          { name: "老抽", amount: 180 },
+          { name: "鸡油", amount: 1000 },
+          { name: "姜末", amount: 180 },
+          { name: "料包", amount: 650 },
+          { name: "料酒", amount: 250 },
+          { name: "嫩肉粉", amount: 50 },
+          { name: "香油", amount: 50 }
+        ]
+      },
+      {
+        id: "pickled_cabbage_fans",
+        name: "酸菜粉丝包",
+        category: "vegetable",
+        baseWeight: 2500,
+        ingredients: [
+          { name: "酸菜", amount: 2500 },
+          { name: "粉丝", amount: 2500 },
+          { name: "料包", amount: 400 },
+          { name: "盐", amount: 42 },
+          { name: "鸡精", amount: 75 },
+          { name: "姜末", amount: 90 },
+          { name: "老抽", amount: 95 },
+          { name: "野山椒", amount: 200 },
+          { name: "猪油鸡油", amount: 2200 },
+          { name: "香油", amount: 50 }
+        ]
+      },
+      {
+        id: "bamboo_shoot_pork",
+        name: "竹笋鲜肉包",
+        category: "meat",
+        baseWeight: 1500,
+        ingredients: [
+          { name: "竹笋", amount: 1500 },
+          { name: "肥肉", amount: 2750 },
+          { name: "瘦肉", amount: 750 },
+          { name: "料包", amount: 450 },
+          { name: "生姜粒", amount: 77 },
+          { name: "大葱", amount: 77 },
+          { name: "色拉油", amount: 500 },
+          { name: "老抽", amount: 135 },
+          { name: "香油", amount: 10 }
+        ]
+      }
+    ];
+
+    // DOM元素
+    const bunTypesContainer = document.getElementById('bun-types-container');
+    const baseWeightInput = document.getElementById('base-weight');
+    const baseWeightSlider = document.getElementById('base-weight-slider');
+    const calculateBtn = document.getElementById('calculate-btn');
+    const nextToWeightBtn = document.getElementById('next-to-weight-btn');
+    const backToBunTypeBtn = document.getElementById('back-to-bun-type-btn');
+    const pageHome = document.getElementById('page-home');
+    const pageWeight = document.getElementById('page-weight');
+    const pageResult = document.getElementById('page-result');
+    const pageReference = document.getElementById('page-reference');
+    const navHome = document.getElementById('nav-home');
+    const navReference = document.getElementById('nav-reference');
+    const backToHome = document.getElementById('back-to-home');
+    const backFromReference = document.getElementById('back-from-reference');
+    const recalculateBtn = document.getElementById('recalculate-btn');
+    const saveResultBtn = document.getElementById('save-result-btn');
+    const resultTitle = document.getElementById('result-title');
+    const resultBunType = document.getElementById('result-bun-type');
+    const resultTotalWeight = document.getElementById('result-total-weight');
+    const resultTableBody = document.getElementById('result-table-body');
+    const referenceTableBody = document.getElementById('reference-table-body');
+    const referenceTypeSelect = document.getElementById('reference-type-select');
+    const saveModal = document.getElementById('save-modal');
+    const saveNameInput = document.getElementById('save-name');
+    const cancelSaveBtn = document.getElementById('cancel-save');
+    const confirmSaveBtn = document.getElementById('confirm-save');
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toast-message');
+    const selectedBunTypeDisplay = document.getElementById('selected-bun-type');
+    const selectedBaseIngredientDisplay = document.getElementById('selected-base-ingredient');
+
+    // 全局变量
+    let selectedBunType = bunTypes[0]; // 默认选择第一种包子类型
+    let selectedBaseIngredient = null; // 选中的基准配料
+    let savedResults = JSON.parse(localStorage.getItem('bunCalculatorResults') || '[]');
+
+    // 初始化页面
+    function initPage() {
+      renderBunTypes();
+      setupEventListeners();
+    }
+
+    // 渲染包子类型卡片
+    function renderBunTypes() {
+      bunTypesContainer.innerHTML = '';
+      bunTypes.forEach(bunType => {
+        const isSelected = selectedBunType.id === bunType.id;
+        const card = document.createElement('div');
+        card.className = `bg-white rounded-lg p-4 card-shadow cursor-pointer transform transition hover:scale-105 ${isSelected ? 'bg-primary/10 border-2 border-primary' : ''}`;
+        card.innerHTML = `
+          <div class="flex items-center">
+            <div class="ml-3">
+              <h3 class="font-bold text-lg">${bunType.name}</h3>
+              <p class="text-sm text-gray-500">${bunType.category === 'meat' ? '肉类' : '素类'}</p>
+            </div>
+            ${isSelected ? '<i class="fa fa-check-circle text-primary ml-auto large-check-icon"></i>' : ''}
+          </div>
+        `;
+        card.addEventListener('click', () => {
+          selectedBunType = bunType;
+          renderBunTypes();
+        });
+        bunTypesContainer.appendChild(card);
+      });
+    }
+    
+    // 设置基准配料
+    function renderBaseIngredientOptions() {
+      // 显示已选择的包子类型
+      selectedBunTypeDisplay.textContent = selectedBunType.name;
+      
+      // 只使用第一个材料作为基准配料
+      selectedBaseIngredient = selectedBunType.ingredients[0];
+      
+      // 显示基准配料名称
+      selectedBaseIngredientDisplay.textContent = selectedBaseIngredient.name;
+      
+      // 更新重量输入框的值为选中配料的基础重量
+      baseWeightInput.value = selectedBaseIngredient.amount;
+      baseWeightSlider.value = selectedBaseIngredient.amount;
+    }
+
+    // 渲染参考表
+
+    // 计算配料用量（基于基准配料重量）
+    function calculateIngredients(bunType, baseIngredient, targetBaseWeight) {
+      const baseRatio = targetBaseWeight / baseIngredient.amount;
+      return bunType.ingredients.map(ingredient => ({
+        name: ingredient.name,
+        amount: ingredient.amount * baseRatio,
+        isBase: ingredient.name === baseIngredient.name
+      }));
+    }
+
+    // 显示计算结果
+    function showResult() {
+      const targetBaseWeight = parseInt(baseWeightInput.value);
+      let ingredients = calculateIngredients(selectedBunType, selectedBaseIngredient, targetBaseWeight);
+      
+      // 将基准配料移到数组首位
+      ingredients = ingredients.sort((a, b) => {
+        if (a.isBase) return -1;
+        if (b.isBase) return 1;
+        return 0;
+      });
+      
+      // 更新结果页面信息 - 简化显示
+      resultBunType.textContent = `${selectedBunType.name}`;
+      
+      // 清空并填充结果表格
+      resultTableBody.innerHTML = '';
+      ingredients.forEach(ingredient => {
+        const row = document.createElement('tr');
+        const isBaseIngredient = ingredient.isBase;
+        const isEvenRow = ingredients.indexOf(ingredient) % 2 === 0;
+        row.className = `border-b-2 border-gray-200 hover:bg-primary/10 ${isBaseIngredient ? 'base-ingredient-highlight bg-primary/10' : (isEvenRow ? 'bg-gray-100 editing-breathing-bg' : 'bg-white')}`;
+        
+        // 添加提示图标和文字
+        const highlightIcon = isBaseIngredient ? 
+          '<i class="fa fa-star text-primary mr-2" title="基准配料"></i>' : '';
+        const highlightText = isBaseIngredient ? 
+          `<span class="text-sm bg-primary text-white px-2 py-1 rounded ml-2">基准</span>` : '';
+        
+        row.innerHTML = `
+          <td class="py-3 px-4 text-center text-base font-medium">
+            ${highlightIcon}${ingredient.name}${highlightText}
+          </td>
+          <td class="py-3 px-4 text-center text-base font-bold">${Math.round(ingredient.amount)}</td>
+        `;
+        resultTableBody.appendChild(row);
+      });
+      
+      // 切换到结果页面
+      switchPage(pageResult);
+    }
+
+    // 页面切换函数
+    function switchPage(targetPage) {
+      // 隐藏所有页面
+      document.querySelectorAll('.page-content').forEach(page => {
+        page.classList.add('hidden');
+      });
+      
+      // 显示目标页面并添加动画
+      targetPage.classList.remove('hidden');
+      targetPage.classList.add('page-enter');
+      setTimeout(() => {
+        targetPage.classList.add('page-enter-active');
+      }, 10);
+      setTimeout(() => {
+        targetPage.classList.remove('page-enter', 'page-enter-active');
+      }, 300);
+      
+      // 更新导航按钮状态
+      if (targetPage === pageHome) {
+        navHome.classList.add('bg-white', 'bg-opacity-20');
+        navReference.classList.remove('bg-white', 'bg-opacity-20');
+      } else if (targetPage === pageReference) {
+        navHome.classList.remove('bg-white', 'bg-opacity-20');
+        navReference.classList.add('bg-white', 'bg-opacity-20');
+      }
+    }
+
+    // 显示提示信息
+    function showToast(message, duration = 2000) {
+      toastMessage.textContent = message;
+      toast.classList.remove('hidden');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, duration);
+    }
+
+    // 保存结果为图片
+    function saveResultAsImage() {
+      const name = saveNameInput.value.trim() || `${selectedBunType.name}包子配比`;
+      
+      // 获取当前日期时间
+      const now = new Date();
+      const dateTimeStr = now.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      // 格式化文件名，使用"xxxx年mm月dd日 x时x分 名称配比_序号.jpg"格式
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const fileName = `${year}年${month}月${day}日 ${hours}时${minutes}分${selectedBunType.name}配比_01`;
+      
+      // 创建一个包含结果和日期时间的临时容器 - 修复宽度兼容性
+      const resultContainer = document.createElement('div');
+      resultContainer.className = 'bg-white p-4 rounded-lg shadow-lg w-full max-w-md mx-auto';
+      resultContainer.style.position = 'absolute';
+      resultContainer.style.left = '-9999px';
+      resultContainer.style.textAlign = 'center'; // 确保整体居中
+      resultContainer.style.width = '400px'; // 增大宽度确保完整显示
+      resultContainer.style.minWidth = '400px';
+      document.body.appendChild(resultContainer);
+      
+      // 添加日期时间戳 - 荣耀30Pro适配
+      const dateTimeElement = document.createElement('div');
+      dateTimeElement.className = 'text-center text-lg font-bold text-black mb-3';
+      dateTimeElement.textContent = `制作日期: ${dateTimeStr}`;
+      resultContainer.appendChild(dateTimeElement);
+      
+      // 复制结果内容并确保样式正确
+      const resultContent = document.querySelector('#page-result .bg-white').cloneNode(true);
+      // 移除原有的标题和类型信息
+      const originalTitle = resultContent.querySelector('h2');
+      if (originalTitle) originalTitle.remove();
+      const originalTypeInfo = resultContent.querySelector('#bun-type-info');
+      if (originalTypeInfo) originalTypeInfo.remove();
+      
+      // 确保表格内容正确对齐
+      const table = resultContent.querySelector('table');
+      if (table) {
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+        
+        // 确保表头和表格内容正确对齐 - 居中布局
+        const thElements = table.querySelectorAll('th');
+        thElements.forEach((th, index) => {
+          th.style.textAlign = 'center';
+          th.style.padding = '12px 8px';
+          th.style.fontSize = '16px';
+          th.style.width = index === 0 ? '67%' : '33%'; // 2:1比例
+        });
+        
+        const tdElements = table.querySelectorAll('td');
+        tdElements.forEach((td, index) => {
+          td.style.textAlign = 'center';
+          td.style.padding = '12px 8px';
+          td.style.fontSize = '16px';
+          td.style.width = index % 2 === 0 ? '67%' : '33%'; // 2:1比例
+        });
+      }
+      
+      resultContainer.appendChild(resultContent);
+      
+      // 使用html2canvas将结果转换为图片
+      html2canvas(resultContainer).then(canvas => {
+        // 创建下载链接
+        const link = document.createElement('a');
+        link.download = `${fileName}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+        
+        // 清理临时元素
+        document.body.removeChild(resultContainer);
+        
+        showToast('结果已保存为图片');
+        saveModal.classList.add('hidden');
+      }).catch(error => {
+        console.error('保存图片失败:', error);
+        showToast('保存图片失败，请重试');
+        document.body.removeChild(resultContainer);
+      });
+    }
+
+    // 设置事件监听器
+    function setupEventListeners() {
+      // 基准重量输入和滑块同步
+      baseWeightInput.addEventListener('input', () => {
+        baseWeightSlider.value = baseWeightInput.value;
+      });
+      
+      baseWeightSlider.addEventListener('input', () => {
+        baseWeightInput.value = baseWeightSlider.value;
+      });
+      
+      // 计算按钮点击事件
+      calculateBtn.addEventListener('click', showResult);
+      
+      // 页面导航事件
+      nextToWeightBtn.addEventListener('click', () => {
+        renderBaseIngredientOptions();
+        switchPage(pageWeight);
+      });
+      
+      backToBunTypeBtn.addEventListener('click', () => {
+        switchPage(pageHome);
+      });
+      
+      // 主导航按钮点击事件
+      navHome.addEventListener('click', () => switchPage(pageHome));
+      recalculateBtn.addEventListener('click', () => switchPage(pageHome));
+      
+      // 保存结果相关事件
+      saveResultBtn.addEventListener('click', () => {
+        saveNameInput.value = `${selectedBunType.name}包子配比_${selectedBaseIngredient.name}${baseWeightInput.value}g`;
+        saveModal.classList.remove('hidden');
+      });
+      
+      cancelSaveBtn.addEventListener('click', () => {
+        saveModal.classList.add('hidden');
+      });
+      
+      confirmSaveBtn.addEventListener('click', saveResultAsImage);
+      
+      // 点击模态框外部关闭
+      saveModal.addEventListener('click', (e) => {
+        if (e.target === saveModal) {
+          saveModal.classList.add('hidden');
+        }
+      });
+    }
+
+    // 初始化页面
+    document.addEventListener('DOMContentLoaded', initPage);
+  </script>
+
+</body></html>
